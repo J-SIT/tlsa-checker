@@ -1,0 +1,26 @@
+# Dockerfile für TLSA-Überprüfung
+
+# Basisimage
+FROM python:3.9-slim
+
+# Arbeitsverzeichnis setzen
+WORKDIR /app
+
+# Benötigte Pakete installieren
+RUN pip install requests dnspython cryptography
+
+# Kopiere die Prüfscripte in den Container
+COPY check_tlsa.py /app/check_tlsa.py
+COPY entrypoint.sh /app/entrypoint.sh
+
+# Environment-Variablen konfigurieren
+ENV DOMAIN=""
+ENV TLSA_RECORD=""
+ENV DISCORD_WEBHOOK_URL=""
+ENV CHECK_INTERVAL=86400
+
+# Entrypoint-Skript ausführbar machen
+RUN chmod +x /app/entrypoint.sh
+
+# Entrypoint festlegen
+ENTRYPOINT ["/app/entrypoint.sh"]
