@@ -16,14 +16,14 @@ There is a test mode which can be used to test the Discord connection.
 To start the container use this command or compose.
 
 ```
-docker run -e DOMAIN="abc.de" -e TLSA_RECORD="_25._tcp" -e DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/1303443" -e CHECK_INTERVAL=86400 schefflerit/tlsa-checker:latest
+docker run -e DOMAIN="abc.de" -e TLSA_RECORD="_25._tcp" -e DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/1303443" -e CHECK_INTERVAL=86400 schefflerit/tlsa-checker:v1
 ```
 
 ```
 version: '3.8'
 services:
   tlsa_checker:
-    image: schefflerit/tlsa-checker:latest
+    image: schefflerit/tlsa-checker:v1
     container_name: TLSA-Checker
     environment:
       - DOMAIN=abc.de

@@ -70,7 +70,44 @@ def verify_tlsa_record(x509_cert, tlsa_entry):
         return True
     else:
         print(f"TLSA record does not match the certificate. Found: {tlsa_cert_data}, Expected: {hash_data}")
+        
         return False
+
+
+def get_expected_hash(x509_cert, tlsa_entry):
+    if not tlsa_entry:
+        print("No valid TLSA record found.")
+        return False
+
+    usage, selector, matching_type, tlsa_cert_data = tlsa_entry
+
+    # Auswahl von Daten je nach `selector`
+    if selector == 0:
+        cert_data = x509_cert.public_bytes(Encoding.DER)
+    elif selector == 1:
+        cert_data = x509_cert.public_key().public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
+    else:
+        print("Unsupported selector in TLSA record.")
+        return False
+
+    # Hashes erzeugen gemäß `matching_type`
+    if matching_type == 0:
+        hash_data = cert_data.hex()
+    elif matching_type == 1:
+        digest = hashes.Hash(hashes.SHA256(), default_backend())
+        digest.update(cert_data)
+        hash_data = digest.finalize().hex()
+        return hash_data
+    elif matching_type == 2:
+        digest = hashes.Hash(hashes.SHA512(), default_backend())
+        digest.update(cert_data)
+        hash_data = digest.finalize().hex()
+        return hash_data
+    else:
+        print("Unsupported matching type in TLSA record.")
+        return False
+
+
 
 
 def send_discord_message(webhook_url, message):
@@ -91,7 +128,6 @@ def fetch_and_select_tlsa_record(api_token, zone_id, tlsa_record_name):
         "Content-Type": "application/json",
     }
     response = requests.get(url, headers=headers)
-    print(f"DEBUG Cloduflare API Response {response}")
     if response.status_code == 200 and response.json().get('success'):
         records = response.json().get('result', [])
         for record in records:
@@ -104,7 +140,7 @@ def fetch_and_select_tlsa_record(api_token, zone_id, tlsa_record_name):
         logging.error("Failed to fetch TLSA records.")
         return None
 
-def update_tlsa_record_in_cloudflare(api_token, zone_id, domain, tlsa_record, usage, selector, matching_type, cert_data):
+def update_tlsa_record_in_cloudflare(api_token, zone_id, domain, tlsa_record, usage, selector, matching_type, expected_hash):
     """Updates a specific TLSA record in Cloudflare with new certificate data."""
     print(f"Starting update of TLSA record for {tlsa_record}.{domain} with new certificate data.")
     target_name = f"{tlsa_record}.{domain}"
@@ -122,17 +158,16 @@ def update_tlsa_record_in_cloudflare(api_token, zone_id, domain, tlsa_record, us
         "Authorization": f"Bearer {api_token}",
         "Content-Type": "application/json",
     }
-    
     # Data payload with new TLSA record details
     data = {
         "type": "TLSA",
         "name": target_name,
-        "ttl": 3600,
+        "ttl": 1,
         "data": {
             "usage": usage,
             "selector": selector,
             "matching_type": matching_type,
-            "certificate": cert_data
+            "certificate": expected_hash
         }
     }
     
@@ -140,7 +175,7 @@ def update_tlsa_record_in_cloudflare(api_token, zone_id, domain, tlsa_record, us
     try:
         update_response = requests.put(url, headers=headers, json=data)
         update_response.raise_for_status()  # Raises HTTPError if the request returned unsuccessful status
-        print(f"Update response: Status Code: {update_response.status_code}, Content: {update_response.json()}")
+        #print(f"Update response: Status Code: {update_response.status_code}, Content: {update_response.json()}")
         print(f"Successfully updated TLSA record for {target_name} with new certificate data.")
     except requests.exceptions.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
@@ -152,11 +187,10 @@ def check_tlsa():
     domain = os.getenv("DOMAIN")
     tlsa_records = [record for record in os.getenv("TLSA_RECORDS", "").split(",") if record]
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
-    api_email = os.getenv("CLOUDFLARE_EMAIL")
-    api_key = os.getenv("CLOUDFLARE_API_KEY")
+    api_token = os.getenv("CLOUDFLARE_API_TOKEN")
     zone_id = os.getenv("CLOUDFLARE_ZONE_ID")
 
-    if not all([domain, tlsa_records, webhook_url, api_key, zone_id]):
+    if not all([domain, tlsa_records, webhook_url, api_token, zone_id]):
         print("Environment variables missing.")
         return
 
@@ -182,10 +216,14 @@ def check_tlsa():
         if not verify_tlsa_record(x509_cert, tlsa_entry):
             print(f"TLSA record for {tlsa_record} is invalid or does not match. Updating...")
             usage, selector, matching_type, cert_data = tlsa_entry
-            update_tlsa_record_in_cloudflare(api_key, zone_id, domain, tlsa_record, usage, selector, matching_type, cert_data)
+            expected_hash = get_expected_hash(x509_cert, tlsa_entry)
+            update_tlsa_record_in_cloudflare(api_token, zone_id, domain, tlsa_record, usage, selector, matching_type, expected_hash)
             send_discord_message(webhook_url, f"TLSA record for {tlsa_record} was updated.")
         else:
             print(f"TLSA record for {tlsa_record} is valid.")
+
+
+
 
 def send_test_message():
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
