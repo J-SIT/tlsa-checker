@@ -12,4 +12,4 @@ In the second version (v2), it should be possible to check several TLSA records 
 <br>
 <br>
 
-Version 1 is already functional, version 2 is in beta state.
+Version 1 is already functional, version 2 is now out of beta state.
