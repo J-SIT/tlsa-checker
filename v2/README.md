@@ -4,8 +4,8 @@ A notification is sent via a Discord WebHook. <br>
 GitHub project: https://github.com/J-SIT/tlsa-checker/
 
 The following can be set via the environment variables:
-- DOMAIN: "abc.de”
-- TLSA_RECORD: "_25._tcp,_143._tcp,_465._tcp"
+- DOMAIN: "abc.de"
+- TLSA_RECORDS: "_25._tcp,_143._tcp,_465._tcp"
 - DISCORD_WEBHOOK_URL: "https://discord.com/api/webhooks/130..."
 - CHECK_INTERVAL: 86400
 - CLOUDFLARE_API_TOKEN: "XXX"
